@@ -1,0 +1,4 @@
+Manifest-Version: 1.1
+Implementation-Title: Java Easy Way
+Implementation-Version: 1.1
+Created-By: Florian SIMON
