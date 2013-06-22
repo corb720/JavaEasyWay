@@ -46,4 +46,9 @@ public class Company {
 	public Company(){
 		
 	}	
+	
+	@Override
+	public String toString() {
+		return this.name;
+	}
 }

@@ -9,6 +9,7 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -16,8 +17,13 @@ import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
+import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
+import javax.swing.UIDefaults;
 import javax.swing.UIManager;
 import javax.swing.UIManager.LookAndFeelInfo;
+import javax.swing.plaf.TableHeaderUI;
+import javax.swing.plaf.basic.BasicTableHeaderUI;
 
 import org.jew.swing.dataset.DataType;
 import org.jew.swing.dataset.EditionEvents;
@@ -67,7 +73,7 @@ public class startApplication {
     	};
     	
     	double[] columnWidths = {
-			80, JTableDataSet.FILL, 100, 50 
+    			JTableDataSet.PREFERED, JTableDataSet.FILL, JTableDataSet.FILL, 0.5 
     	};
     	    	
     	TableRowProcessData<Company> processData = new TableRowProcessData<Company>() {			
@@ -91,6 +97,7 @@ public class startApplication {
 		
 		tableDataSet = new JTableDataSet<Company>(
     			columnNames,
+//    			columnTooltips,
     			columnTypes, 
     			columnWidths, 
     			processData);
@@ -115,10 +122,10 @@ public class startApplication {
     	tableDataSet.addMouseListener(new MouseListener() {			
 			@Override
 			public void mouseReleased(MouseEvent e) {
-				System.err.println(tableDataSet.getSelectedRow());
-				System.err.println(tableDataSet.getSelectedValue().getName());
-				System.err.println(tableDataSet.getSelectedId());
-				System.err.println();
+//				System.err.println(tableDataSet.getSelectedRow());
+//				System.err.println(tableDataSet.getSelectedValue().getName());
+//				System.err.println(tableDataSet.getSelectedId());
+//				System.err.println();
 			}
 			@Override
 			public void mousePressed(MouseEvent e) {}
@@ -163,7 +170,7 @@ public class startApplication {
     	
     	
     	java.util.Random rnd = new java.util.Random(System.currentTimeMillis());
-    	for (int i = 1; i < 100; i++) {    		
+    	for (int i = 1; i < 5; i++) {    		
     		Company c = new Company();
     		c.setName("Company " + i);
     		c.setNationality(Nation.values()[i%5]);
@@ -171,10 +178,38 @@ public class startApplication {
 			c.setTurnover(turnover);
 			c.setTraded(i % 2 == 1);
 			
-			tableDataSet.getTableValues().put(i, c);
+			tableDataSet.addValue(i, c);
 		}
     	//Refresh Table
     	tableDataSet.fireTableDataChanged();
+    	
+    	Thread t = new Thread(){
+    		int id = 6;
+    		public void run() {
+    			while(! Thread.currentThread().isInterrupted()){
+    				Company c = new Company();
+    				c.setName(String.valueOf(id));
+    				tableDataSet.addValue(id, c);
+    				SwingUtilities.invokeLater(new Runnable() {						
+						@Override
+						public void run() {
+							Company selectedCompany = tableDataSet.getSelectedValue();
+							System.err.println(selectedCompany);
+							tableDataSet.fireTableDataChanged();
+							tableDataSet.selectValue(selectedCompany);
+						}
+					});    				
+    				id ++;
+    				try {
+						Thread.sleep(2000);
+					} catch (InterruptedException e) {
+						break;
+					}
+    				tableDataSet.removeValue(id -1);
+    			}
+    		}
+    	};
+    	t.start();
     	
     	frame.add(createForm(), BorderLayout.NORTH);    	
     	

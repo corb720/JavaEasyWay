@@ -23,10 +23,11 @@ package org.jew.swing.table;
 
 
 import javax.swing.JTable;
-import sun.swing.table.DefaultTableCellHeaderRenderer;
-import javax.swing.table.TableColumnModel;
 import javax.swing.table.TableColumn;
+import javax.swing.table.TableColumnModel;
 import javax.swing.table.TableModel;
+
+import sun.swing.table.DefaultTableCellHeaderRenderer;
 
 @SuppressWarnings("serial")
 public class JETable extends JTable {
@@ -43,7 +44,6 @@ public class JETable extends JTable {
 
 	@Override
 	public void createDefaultColumnsFromModel(){
-
 		TableModel m = getModel();
 		if (m != null) {             
 			TableColumnModel cm = getColumnModel();
@@ -63,6 +63,5 @@ public class JETable extends JTable {
 				addColumn(newColumn);
 			}
 		}
-
-	}
+	}	
 }

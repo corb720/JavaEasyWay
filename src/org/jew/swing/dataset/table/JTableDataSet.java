@@ -24,10 +24,13 @@ package org.jew.swing.dataset.table;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Font;
+import java.awt.event.HierarchyBoundsListener;
+import java.awt.event.HierarchyEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -72,6 +75,9 @@ public class JTableDataSet <T>
 	
 	
 	public static final double FILL = -1;
+	public static final double PREFERED = -2;
+	
+	protected Map<Integer, Double> columnWidthPercentages = new HashMap<Integer, Double>();
 	
 	protected List<Column> columns = new ArrayList<Column>();
 
@@ -97,15 +103,17 @@ public class JTableDataSet <T>
 
 	protected TableRowProcessData<T> tableRowProcessData;
 
-	protected Map<Integer, T> tableValues;
-
-	public Map<Integer, T> getTableValues () {
-		return this.tableValues;
-	}
+	protected Map<Integer, T> tableValues = new LinkedHashMap<Integer, T>();
 	
-	int columnIndex = -1;
+	protected Map<Integer, T> updatedValues = new LinkedHashMap<Integer, T>();
 	
-	TableColumn tableColumn = new TableColumn() {		
+	protected List<Integer> removedValues = new ArrayList<Integer>();
+	
+	protected Object valuesLock = new Object();
+		
+	protected int columnIndex = -1;
+	
+	protected TableColumn tableColumn = new TableColumn() {		
 		@Override
 		public void setWidth(final double width) {
 			columns.get(columnIndex).width = width;
@@ -168,6 +176,7 @@ public class JTableDataSet <T>
 		this(columnNames, columnTypes, columnWidths, rowProcessData);
 		this.setColumnTooltips(columnTooltips);
 		this.tooltipsVisible = true;
+		this.columnModelToView();
 	}
 
 	protected void columnModelToView() {
@@ -187,11 +196,18 @@ public class JTableDataSet <T>
 		}
 			
 		fireTableStructureChanged();
-
+		
 		TableColumnModel columnModel = table.getColumnModel();
+		this.columnWidthPercentages.clear();
 		for (int i = 0; i < columnWidths.length; i++) {
 			if(columns.get(i).visible){
-				if(columnWidths[i] != FILL){
+				if(columnWidths[i] > 0 && columnWidths[i] < 1){
+					this.columnWidthPercentages.put(i, columnWidths[i]);					
+				}	
+				else if(columnWidths[i] == PREFERED){
+					columnModel.getColumn(i).sizeWidthToFit();
+				}
+				else if(columnWidths[i] != FILL){					
 					int columnWidth = (int) columnWidths[i];
 					columnModel.getColumn(i).setMinWidth(columnWidth);
 					columnModel.getColumn(i).setMaxWidth(columnWidth);
@@ -203,6 +219,8 @@ public class JTableDataSet <T>
 				columnModel.getColumn(i).setPreferredWidth(0);
 			}
 		}
+		
+		this.computePercentageColumnWidths();
 	}
 
 	public void addColumn(
@@ -213,45 +231,37 @@ public class JTableDataSet <T>
 
 		this.columns.add(new Column(columnName, columnTooltip, columnWidth, true, columnType));
 		this.columnModelToView();
-		
-//		String[] formerNameList = this.model.getColumnNames();
-//		String[] newNameList = new String[formerNameList.length + 1];
-//		for (int i = 0; i < formerNameList.length; i++) {
-//			newNameList[i] = formerNameList[i];
-//		}
-//		newNameList[formerNameList.length] = columnName;
-//		this.setColumnNames(newNameList);
-//
-//		String[] formerTooltipList = this.model.getColumnNames();
-//		String[] newTooltipList = new String[formerTooltipList.length + 1];
-//		for (int i = 0; i < formerTooltipList.length; i++) {
-//			newTooltipList[i] = formerTooltipList[i];
-//		}
-//		newTooltipList[formerTooltipList.length] = columnTooltip;
-//		this.setColumnTooltips(newTooltipList);
-//
-//		DataType[] formerDataTypeList = this.columnTypes;
-//		DataType[] newDataTypeList = new DataType[formerDataTypeList.length + 1];
-//		for (int i = 0; i < formerDataTypeList.length; i++) {
-//			newDataTypeList[i] = formerDataTypeList[i];
-//		}
-//		newDataTypeList[formerDataTypeList.length] = columnType;
-//		this.setColumnTypes(newDataTypeList);
-//
-//		fireTableStructureChanged();
-//
-//		double[] formerWidthList = this.columnWidths;
-//		double[] newWidthList = new double[formerWidthList.length + 1];
-//		for (int i = 0; i < formerWidthList.length; i++) {
-//			newWidthList[i] = formerWidthList[i];
-//		}
-//		newWidthList[formerWidthList.length] = columnWidth;
-//		this.setColumnWidths(newWidthList);
 	}
 
 	public void removeColumn(final int index){
 		this.columns.remove(index);
 		this.columnModelToView();
+	}
+	
+	public void addValue(final Integer id, final T value){
+		synchronized (this.valuesLock) {
+			this.updatedValues.put(id, value);
+		}
+	}
+	
+	public void updateValue(final Integer id, final T value){
+		synchronized (this.valuesLock) {
+			this.updatedValues.put(id, value);
+		}
+	}
+	
+	public void removeValue(final Integer id){
+		synchronized (this.valuesLock) {
+			this.removedValues.add(id);
+		}
+	}
+	
+	public T readValue(final Integer id){
+		T retVal = null;
+		synchronized (this.valuesLock) {
+			retVal= this.tableValues.get(id);
+		}
+		return retVal;
 	}
 	
 	public void addMouseListener(
@@ -392,11 +402,12 @@ public class JTableDataSet <T>
 
 	@SuppressWarnings("unchecked")
 	public T getSelectedValue()	{
-
-		if(this.table.getSelectedRow() == -1){
-			return null;
-		}
-		return (T) tableValues.values().toArray()[this.table.convertRowIndexToModel(this.table.getSelectedRow())];
+		synchronized (this.valuesLock) {
+			if(this.table.getSelectedRow() == -1){
+				return null;
+			}
+			return (T) tableValues.values().toArray()[this.table.convertRowIndexToModel(this.table.getSelectedRow())];
+		}		
 	}
 
 	@SuppressWarnings("unchecked")
@@ -440,7 +451,16 @@ public class JTableDataSet <T>
 	}
 
 	public void fireTableDataChanged(){
-
+		synchronized (this.valuesLock) {
+			for (Integer id : this.removedValues) {
+				this.tableValues.remove(id);
+			}
+			for (java.util.Map.Entry<Integer, T> entry : this.updatedValues.entrySet()) {
+				this.tableValues.put(entry.getKey(), entry.getValue());
+			}
+			this.removedValues.clear();
+			this.updatedValues.clear();
+		}
 		((AbstractTableModel)this.model).fireTableDataChanged();
 	}
 
@@ -450,7 +470,6 @@ public class JTableDataSet <T>
 	}
 
 	public void selectRow(final int row){
-
 		this.table.changeSelection(row, 0, true, false);
 	}
 
@@ -466,26 +485,38 @@ public class JTableDataSet <T>
 	public void selectValue(
 			final T value){
 
-		T[] valTab = (T[]) this.tableValues.values().toArray();
+		T[] valTab = null;
+		synchronized (this.valuesLock) {			
+			valTab = (T[]) this.tableValues.values().toArray();
+		}
 		for (int i = 0; i < valTab.length; i++) {
 			if(valTab[i].equals(value)){
-				this.table.changeSelection(i, 0, true, false);
+				this.table.changeSelection(this.table.convertRowIndexToView(i), 0, true, false);
+				return;
 			}
-		}    	
+		}    
+		this.table.clearSelection();
 	}
 
 	@SuppressWarnings("unchecked")
 	public void selectValues(
 			final T[] values){
 
-		T[] valTab = (T[]) this.tableValues.values().toArray();
-		for (int i = 0; i < valTab.length; i++) {
-			for (int j = 0; j < values.length; j++) {			
-				if(valTab[i].equals(values[j])){
-					this.table.changeSelection(i, 0, true, false);
+		synchronized (this.valuesLock) {
+			boolean selectionChanged = false;
+			T[] valTab = (T[]) this.tableValues.values().toArray();
+			for (int i = 0; i < valTab.length; i++) {
+				for (int j = 0; j < values.length; j++) {			
+					if(valTab[i].equals(values[j])){
+						selectionChanged = true;
+						this.table.changeSelection(this.table.convertRowIndexToView(i), 0, true, false);
+					}
 				}
 			}
-		}    
+			if(! selectionChanged){
+				this.table.clearSelection();
+			}
+		}
 	}
 
 	public TableColumn getColumn(final int index) {
@@ -578,8 +609,16 @@ public class JTableDataSet <T>
 
 		this.table = new JETable();
 
-		this.tableValues = new HashMap<Integer, T>();
-
+		this.table.addHierarchyBoundsListener(new HierarchyBoundsListener() {			
+			@Override
+			public void ancestorResized(final HierarchyEvent event) {
+				computePercentageColumnWidths();
+			}
+			
+			@Override
+			public void ancestorMoved(final HierarchyEvent event) {}
+		});
+		
 		JETableModel<T> model = new JETableModel<T>(){
 			@SuppressWarnings("unchecked")
 			@Override
@@ -623,11 +662,21 @@ public class JTableDataSet <T>
 		this.table.setCellSelectionEnabled(true);
 		this.table.setDragEnabled(true);
 		this.table.setColumnSelectionAllowed(false);
-		this.table.getTableHeader().setResizingAllowed(false);
 		this.table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		this.table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);		
 		this.table.setAutoCreateRowSorter(true);    	
 
 		this.displayComponent = table;
 	}
+
+	protected void computePercentageColumnWidths() {
+		for(java.util.Map.Entry<Integer, Double> entry : columnWidthPercentages.entrySet()){
+			double totalWidth = this.table.getWidth();
+			int columnWidth = (int) (totalWidth * entry.getValue());
+			int col = this.table.convertColumnIndexToView(entry.getKey());
+			this.table.getColumnModel().getColumn(col).setMinWidth(columnWidth);
+			this.table.getColumnModel().getColumn(col).setMaxWidth(columnWidth);
+			this.table.getColumnModel().getColumn(col).setPreferredWidth(columnWidth);
+		}
+	}	
 }

@@ -82,9 +82,7 @@ extends AbstractTableModel
 	}
 
 
-	public int indexOf(
-			final int number)
-	{
+	public int indexOf(final int number){
 
 		Object[] tableTab = tableMap.keySet().toArray();
 		for (int i = 0; i < tableTab.length; i++) {
@@ -92,17 +90,10 @@ extends AbstractTableModel
 				return i;
 			}
 		}
-
-
 		return -1;
-
 	}
 
-	public int getRowCount()
-	{
-
-
-
+	public int getRowCount(){
 		return this.tableMap.size();
 
 	}
@@ -110,43 +101,33 @@ extends AbstractTableModel
 	public void setValueAt(
 			final Object value,
 			final int row,
-			final int column)
-	{
+			final int column){
 
 
 	}
 
 	public boolean isCellEditable(
 			final int row,
-			final int column)
-	{
-
-
+			final int column){
 
 		return false;
-
 	}
 
 	public Object getValueAt(
 			final int row,
-			final int col)
-	{
+			final int col){
+
 		if(getRowCount() > 0){
 			if (row < getRowCount()){
 				return this.tableMap.values().toArray()[row];
 			}
 		}
 		return null;
-
 	}
 
 	public Class<?> getColumnClass(
-			final int col)
-			{
-
-
+			final int col){
 
 		return Object.class;
-
-			}
+	}	
 }
