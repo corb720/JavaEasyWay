@@ -33,14 +33,20 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
+import javax.swing.DefaultCellEditor;
+import javax.swing.DefaultListCellRenderer;
 import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
+import javax.swing.JList;
 import javax.swing.JTable;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.JTableHeader;
+import javax.swing.table.TableCellEditor;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumnModel;
 
@@ -95,9 +101,9 @@ public class JTableDataSet <T>
 
 	protected TableCellRendererParameters<T> tableCellRendererParameters = new TableCellRendererParameters<T>();
 
-	protected Map<Integer, EditionEvents<T>> tableMouseEventMap = new HashMap<Integer, EditionEvents<T>>();
+	protected Map<Integer, EditionEvents> tableMouseEventMap = new HashMap<Integer, EditionEvents>();
 
-	public Map<Integer, EditionEvents<T>> getTableMouseEventMap () {
+	public Map<Integer, EditionEvents> getTableMouseEventMap () {
 		return this.tableMouseEventMap;
 	}
 
@@ -163,7 +169,9 @@ public class JTableDataSet <T>
 					columnTypes[i]));
 		}
 		
-		this.columnModelToView();		
+		this.columnModelToView();
+		
+		this.initEditors();
 	}
 
 	public JTableDataSet(
@@ -256,12 +264,28 @@ public class JTableDataSet <T>
 		}
 	}
 	
+	public void clearValues(){
+		synchronized (this.valuesLock) {
+			this.updatedValues.clear();
+			this.removedValues.clear();
+			this.tableValues.clear();
+		}
+	}
+	
 	public T readValue(final Integer id){
 		T retVal = null;
 		synchronized (this.valuesLock) {
 			retVal= this.tableValues.get(id);
 		}
 		return retVal;
+	}
+	
+	public void readAllValues(final TableValuesReader<T> reader){
+		synchronized (this.valuesLock) {
+			for (Entry<Integer, T> entry : this.tableValues.entrySet()) {
+				reader.readValue(entry.getKey(), entry.getValue());
+			}
+		}
 	}
 	
 	public void addMouseListener(
@@ -308,7 +332,7 @@ public class JTableDataSet <T>
 
 	public void setColumnEditionEvent(
 			final int columnIndex,
-			final EditionEvents<T> tme){
+			final EditionEvents tme){
 
 		this.tableMouseEventMap.put(columnIndex, tme);
 
@@ -550,7 +574,7 @@ public class JTableDataSet <T>
 				int columnIndex = table.convertColumnIndexToModel(column);
 
 				Object data = value;
-				if( ! (data instanceof Boolean)){
+				if( ! (data instanceof Boolean) ){
 					data = columns.get(columnIndex).type.format(data);
 				}
 
@@ -601,6 +625,7 @@ public class JTableDataSet <T>
 		this.table.setDefaultRenderer(Float.class, renderer);	
 		this.table.setDefaultRenderer(Boolean.class, renderer);	
 		this.table.setDefaultRenderer(String.class, renderer);	
+		this.table.setDefaultRenderer(List.class, renderer);	
 	}
 
 	@SuppressWarnings("serial")
@@ -656,7 +681,7 @@ public class JTableDataSet <T>
 		};
 		model.setTableMap(this.tableValues);
 		this.model = model;
-
+	
 		this.table.setModel(model);
 		this.table.setEnabled(true);
 		this.table.setCellSelectionEnabled(true);
@@ -664,9 +689,10 @@ public class JTableDataSet <T>
 		this.table.setColumnSelectionAllowed(false);
 		this.table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		this.table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);		
-		this.table.setAutoCreateRowSorter(true);    	
+		this.table.setAutoCreateRowSorter(true); 
+		this.table.setRowHeight(20);
 
-		this.displayComponent = table;
+		this.displayComponent = table;		
 	}
 
 	protected void computePercentageColumnWidths() {
@@ -678,5 +704,35 @@ public class JTableDataSet <T>
 			this.table.getColumnModel().getColumn(col).setMaxWidth(columnWidth);
 			this.table.getColumnModel().getColumn(col).setPreferredWidth(columnWidth);
 		}
-	}	
+	}
+	
+	protected void initEditors() {
+		for (int i = 0 ; i < this.table.getColumnModel().getColumnCount() ; i++) {
+			final Column currentColumn = columns.get(i);
+			if(currentColumn.type.getCellType().equals(List.class)){
+				this.table.getColumnModel().getColumn(i).setCellEditor(
+						this.createComboCellEditor(currentColumn));
+			}
+		}
+	}
+
+	protected TableCellEditor createComboCellEditor(final Column column) {
+		JComboBox comboBox = new JComboBox();
+		for (Object key : column.type.getDico().keySet()) {
+			comboBox.addItem(key);					
+		}
+		comboBox.setRenderer(new DefaultListCellRenderer() {					
+			@Override
+			public Component getListCellRendererComponent(
+					JList list, 
+					Object value,
+					int index, 
+					boolean isSelected, 
+					boolean cellHasFocus) {
+				
+				return super.getListCellRendererComponent(list, column.type.format(value), index, isSelected, cellHasFocus);
+			}
+		});
+		return new DefaultCellEditor(comboBox);
+	}
 }

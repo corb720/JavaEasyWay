@@ -9,7 +9,6 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -17,19 +16,16 @@ import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
-import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
-import javax.swing.UIDefaults;
 import javax.swing.UIManager;
 import javax.swing.UIManager.LookAndFeelInfo;
-import javax.swing.plaf.TableHeaderUI;
-import javax.swing.plaf.basic.BasicTableHeaderUI;
 
 import org.jew.swing.dataset.DataType;
 import org.jew.swing.dataset.EditionEvents;
 import org.jew.swing.dataset.table.JTableDataSet;
 import org.jew.swing.dataset.table.TableCellRendererParameters;
 import org.jew.swing.dataset.table.TableRowProcessData;
+import org.jew.swing.dataset.table.TableValuesReader;
 import org.jew.swing.dataset.table.companies.datamodel.Company;
 import org.jew.swing.dataset.table.companies.datamodel.Nation;
 
@@ -69,7 +65,7 @@ public class startApplication {
     	};
     	
     	DataType[] columnTypes = {
-			DataType.TEXT, DataType.TEXT(nationMap), DataType.NUMBER("NNN.NNn"), DataType.BOOLEAN
+			DataType.TEXT, DataType.LIST(nationMap), DataType.NUMBER("NNN.NNn"), DataType.BOOLEAN
     	};
     	
     	double[] columnWidths = {
@@ -93,8 +89,7 @@ public class startApplication {
 				}
 			}
 		};
-    			
-		
+    	
 		tableDataSet = new JTableDataSet<Company>(
     			columnNames,
 //    			columnTooltips,
@@ -102,20 +97,26 @@ public class startApplication {
     			columnWidths, 
     			processData);
 				
-
     	frame.add(new JScrollPane(tableDataSet.getDisplayComponent()), BorderLayout.CENTER);
 		
-    	tableDataSet.setColumnEditionEvent(3, new EditionEvents<Company>() {
+    	tableDataSet.setColumnEditionEvent(3, new EditionEvents<Company, Boolean>() {
     		@Override
-    		public void notifyValueChanged(final Company company, final Object isTraded) {
-    			company.setTraded((Boolean) isTraded);
+    		public void notifyValueChanged(final Company company, final Boolean isTraded) {
+    			company.setTraded(isTraded);
     		}
 		});
     	
-    	tableDataSet.setColumnEditionEvent(2, new EditionEvents<Company>() {
+    	tableDataSet.setColumnEditionEvent(1, new EditionEvents<Company, Nation>() {			
+			@Override
+			public void notifyValueChanged(Company company, Nation nationality) {
+				company.setNationality(nationality);
+			}
+		});
+    	
+    	tableDataSet.setColumnEditionEvent(2, new EditionEvents<Company, Double>() {
     		@Override
-    		public void notifyValueChanged(final Company company, final Object turnover) {
-    			company.setTurnover((Double) turnover);
+    		public void notifyValueChanged(final Company company, final Double turnover) {
+    			company.setTurnover(turnover);
     		}
 		});
     	
@@ -210,6 +211,14 @@ public class startApplication {
     		}
     	};
     	t.start();
+    	
+    	tableDataSet.readAllValues(new TableValuesReader<Company>() {			
+			@Override
+			public void readValue(int id, Company obj) {
+				System.err.println(obj);
+			}
+		});
+		
     	
     	frame.add(createForm(), BorderLayout.NORTH);    	
     	

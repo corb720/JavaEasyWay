@@ -24,6 +24,7 @@ package org.jew.swing.dataset;
 
 import java.text.Format;
 import java.text.NumberFormat;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -37,8 +38,12 @@ public class DataType
 	public static final DataType TEXT = new DataType(String.class);
 
 	public static final DataType NUMBER = new DataType(Double.class);
-
+	
 	protected Map<Object, String> dico;
+	
+	public Map<Object, String> getDico(){
+		return this.dico;
+	}
 
 	protected Format format;
 
@@ -87,6 +92,12 @@ public class DataType
 			final Map dico){
 
 		return new DataType(Object.class, dico);
+	}
+	
+	public static DataType LIST(
+			final Map dico){
+
+		return new DataType(List.class, dico);
 	}
 
 	public Object format(

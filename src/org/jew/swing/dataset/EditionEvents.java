@@ -23,10 +23,10 @@ package org.jew.swing.dataset;
 
 
 
-public interface EditionEvents <T>
+public interface EditionEvents <T,U>
 {
 
 	void notifyValueChanged(
 			final T data,
-			final Object value);
+			final U value);
 }
