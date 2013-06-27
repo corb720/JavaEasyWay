@@ -3,6 +3,7 @@ package org.jew.swing.dataset.table.companies;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.FlowLayout;
+import java.awt.Font;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
@@ -20,10 +21,11 @@ import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.UIManager.LookAndFeelInfo;
 
+import org.jew.swing.dataset.TableCellStyle;
 import org.jew.swing.dataset.DataType;
 import org.jew.swing.dataset.EditionEvents;
 import org.jew.swing.dataset.table.JTableDataSet;
-import org.jew.swing.dataset.table.TableCellRendererParameters;
+import org.jew.swing.dataset.table.TableCellStyleRenderer;
 import org.jew.swing.dataset.table.TableRowProcessData;
 import org.jew.swing.dataset.table.TableValuesReader;
 import org.jew.swing.dataset.table.companies.datamodel.Company;
@@ -72,7 +74,7 @@ public class startApplication {
     			JTableDataSet.PREFERED, JTableDataSet.FILL, JTableDataSet.FILL, 0.5 
     	};
     	    	
-    	TableRowProcessData<Company> processData = new TableRowProcessData<Company>() {			
+    	final TableRowProcessData<Company> processData = new TableRowProcessData<Company>() {			
 			@Override
 			public Object computeValue(final Company company, final int columnIndex) {
 				switch (columnIndex) {
@@ -138,34 +140,43 @@ public class startApplication {
 			public void mouseClicked(MouseEvent e) {}
 		});
     	
-    	tableDataSet.setCellRenderParameters(new TableCellRendererParameters < Company > (){
+    	tableDataSet.setTableCellStyleRenderer(new TableCellStyleRenderer < Company > (){    		
     		@Override
-    		public Color getBackgroundColor(
-    				final Company company, 
-    				final int columnIndex) {
+    		public TableCellStyle computeDefaultStyle(
+    				final int row,
+    				final int column,
+    				final Company company,
+    				final TableCellStyle cellStyle){
     			
-    			if(company.isTraded() && columnIndex == 3){
-    				return Color.ORANGE;
+    			cellStyle.setForegroundColor(Color.BLACK);
+    			if(row % 2 == 0){
+    				cellStyle.setBackgroundColor(Color.LIGHT_GRAY);
+    			}else{
+    				cellStyle.setBackgroundColor(Color.WHITE);
     			}
-    			if(company.getTurnover() > 50){
-    				return Color.YELLOW;
+
+    			if(column == 1){
+    				cellStyle.setForegroundColor(Color.red);
+    			}else{
+    				cellStyle.setForegroundColor(Color.BLACK);
     			}
-    			return super.getBackgroundColor(company, columnIndex);
+    			
+    			return cellStyle;
     		}
     		
     		@Override
-    		public Color getSelectionBackgroundColor(
+    		public TableCellStyle computeSelectedStyle(
+    				final int row,
+    				final int column,
     				final Company company,
-    				final int columnIndex) {
-    			
-    			if(company.isTraded() && columnIndex == 3){
-    				return Color.BLUE.darker();
-    			}
-    			if(company.getTurnover() > 50){
-    				return Color.BLUE;
-    			}
-    			return super.getSelectionBackgroundColor(company, columnIndex);
-    		}
+    				final TableCellStyle cellStyle) {
+    			   			   			
+				cellStyle.setBackgroundColor(Color.BLUE.darker());
+				cellStyle.setForegroundColor(Color.WHITE);
+			    			
+    			return cellStyle;
+    		}    		
+    		
     	});
     	    	
     	

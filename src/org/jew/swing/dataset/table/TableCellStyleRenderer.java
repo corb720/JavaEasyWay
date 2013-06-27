@@ -21,43 +21,19 @@ THE SOFTWARE.
  */
 package org.jew.swing.dataset.table;
 
-import java.awt.Color;
-import java.awt.Font;
+import org.jew.swing.dataset.TableCellStyle;
 
-public class TableCellRendererParameters <T> {
+public interface TableCellStyleRenderer <T> {
 
-	public Color getBackgroundColor(
+	public TableCellStyle computeDefaultStyle(
+			final int row,
+			final int column,
 			final T obj,
-			final int columnIndex)   {
-
-		return Color.WHITE;
-	}
-
-	public Color getForegroundColor(
+			final TableCellStyle cellStyle);
+	
+	public TableCellStyle computeSelectedStyle(
+			final int row,
+			final int column,
 			final T obj,
-			final int columnIndex){
-
-		return Color.BLACK;
-	}
-
-	public Color getSelectionBackgroundColor(
-			final T obj,
-			final int columnIndex) {
-
-		return Color.BLUE.darker().darker();
-	}
-
-	public Color getSelectionForegroundColor(
-			final T obj,
-			final int columnIndex){
-
-		return Color.WHITE;
-	}
-
-	public Font getFont(
-			final T obj,
-			final int columnIndex){
-
-		return null;
-	}
+			final TableCellStyle cellStyle);
 }

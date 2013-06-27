@@ -50,8 +50,10 @@ import javax.swing.table.TableCellEditor;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumnModel;
 
+import org.jew.swing.dataset.TableCellStyle;
 import org.jew.swing.dataset.DataType;
 import org.jew.swing.dataset.EditionEvents;
+import org.jew.swing.dataset.table.companies.datamodel.Company;
 import org.jew.swing.table.JETable;
 import org.jew.swing.table.JETableModel;
 
@@ -99,7 +101,20 @@ public class JTableDataSet <T>
 
 	protected JTable table;
 
-	protected TableCellRendererParameters<T> tableCellRendererParameters = new TableCellRendererParameters<T>();
+	protected TableCellStyleRenderer<T> tableCellStyleRenderer = new TableCellStyleRenderer<T>() {
+
+		@Override
+		public TableCellStyle computeDefaultStyle(int row, int column, T obj, TableCellStyle cellStyle) {
+			cellStyle.setBackgroundColor(Color.WHITE);
+			return cellStyle;
+		}
+
+		@Override
+		public TableCellStyle computeSelectedStyle(int row, int column, T obj, TableCellStyle cellStyle) {
+			cellStyle.setBackgroundColor(Color.LIGHT_GRAY);
+			return cellStyle;
+		}
+	};
 
 	protected Map<Integer, EditionEvents> tableMouseEventMap = new HashMap<Integer, EditionEvents>();
 
@@ -170,8 +185,6 @@ public class JTableDataSet <T>
 		}
 		
 		this.columnModelToView();
-		
-		this.initEditors();
 	}
 
 	public JTableDataSet(
@@ -228,7 +241,8 @@ public class JTableDataSet <T>
 			}
 		}
 		
-		this.computePercentageColumnWidths();
+		this.computePercentageColumnWidths();		
+		this.initEditors();
 	}
 
 	public void addColumn(
@@ -270,6 +284,14 @@ public class JTableDataSet <T>
 			this.removedValues.clear();
 			this.tableValues.clear();
 		}
+	}
+	
+	public int getSize(){
+		int size = -1;
+		synchronized (this.valuesLock) {
+			size = this.tableValues.size();
+		}
+		return size;
 	}
 	
 	public T readValue(final Integer id){
@@ -316,12 +338,12 @@ public class JTableDataSet <T>
 
 	}
 
-	public void setCellRenderParameters(
-			final TableCellRendererParameters<T> parameters){
+	public void setTableCellStyleRenderer(
+			final TableCellStyleRenderer<T> tableCellStyleRenderer){
 
-		this.tableCellRendererParameters = parameters;
-
+		this.tableCellStyleRenderer = tableCellStyleRenderer;
 	}
+
 
 	public void setCellSelectionEnabled(
 			final boolean enabled){
@@ -554,6 +576,7 @@ public class JTableDataSet <T>
 
 		TableCellRenderer renderer = new DefaultTableCellRenderer() {
 			protected JCheckBox checkBox = new JCheckBox();
+			protected TableCellStyle cellStyle = new TableCellStyle();
 
 			@SuppressWarnings("unchecked")
 			@Override
@@ -565,6 +588,7 @@ public class JTableDataSet <T>
 					final int row, 
 					final int column) {
 
+				
 				if (value instanceof String || value instanceof Enum) {
 					this.setHorizontalAlignment(SwingConstants.CENTER);
 				} else {
@@ -572,48 +596,43 @@ public class JTableDataSet <T>
 				}
 
 				int columnIndex = table.convertColumnIndexToModel(column);
-
 				Object data = value;
 				if( ! (data instanceof Boolean) ){
 					data = columns.get(columnIndex).type.format(data);
 				}
 
 				T obj = (T) tableValues.values().toArray()[table.convertRowIndexToModel(row)];
-				Color selectionBgColor = tableCellRendererParameters.getSelectionBackgroundColor(obj, columnIndex);
-				Color selectionFgColor = tableCellRendererParameters.getSelectionForegroundColor(obj, columnIndex);
-				Color bgColor = tableCellRendererParameters.getBackgroundColor(obj, columnIndex);
-				Color fgColor = tableCellRendererParameters.getForegroundColor(obj, columnIndex);
-
-				if (value !=null) {		    		
-
+				
+				if(isSelected){
+					this.cellStyle = tableCellStyleRenderer.computeSelectedStyle(
+							row, 
+							columnIndex, 
+							obj, 
+							this.cellStyle);		
+				}else{
+					this.cellStyle = tableCellStyleRenderer.computeDefaultStyle(
+							row, 
+							columnIndex, 
+							obj, 
+							this.cellStyle);		
+				}
+				
+									
+				
+				if (value !=null) {
 					if(value instanceof Boolean) {
 						this.checkBox.setOpaque(true);
 						this.checkBox.setSelected((Boolean) value);
 						this.checkBox.setHorizontalAlignment(SwingConstants.CENTER);
-
 						this.checkBox.setEnabled(this.isEnabled());
-
-						if(isSelected){
-							this.checkBox.setBackground(selectionBgColor);				
-						}else{
-							this.checkBox.setBackground(bgColor);
-						}
-
+						this.checkBox.setBackground(this.cellStyle.getBackgroundColor());						
 						return checkBox;
 					}
-				}
-
-				if(isSelected){
-					this.setBackground(selectionBgColor);
-					this.setForeground(selectionFgColor);
-				}else{
-					this.setBackground(bgColor);
-					this.setForeground(fgColor);
-				}		
-				if(tableCellRendererParameters.getFont(obj, columnIndex) == null){
-					this.getFont().deriveFont(Font.BOLD);
-					setFont(this.getFont());
-				}
+				}												
+				this.setFont(this.cellStyle.getFont());
+				this.setBackground(this.cellStyle.getBackgroundColor());
+				this.setForeground(this.cellStyle.getForegroundColor());
+									
 				setValue(data);
 
 				return this;
